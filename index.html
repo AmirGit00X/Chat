@@ -2,89 +2,193 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Private Chat Room</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Private Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+    <style>
+        :root {
+            --bg: #0e1621; --header: #17212b; --my-msg: #2b5278; --other-msg: #182533;
+            --accent: #40a7e3; --white: #ffffff; --text-sec: #7f91a4;
+        }
+        * { box-sizing: border-box; font-family: Tahoma, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--white); overflow: hidden; }
+
+        /* لایه امنیت و ورود */
+        .auth-overlay {
+            position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .login-box {
+            background: var(--header); padding: 30px; border-radius: 20px;
+            width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .login-box input {
+            width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px;
+            border: 1px solid #242f3d; background: #242f3d; color: white; outline: none;
+        }
+        .login-box button {
+            width: 100%; padding: 12px; border-radius: 10px; border: none;
+            background: var(--accent); color: white; font-weight: bold; cursor: pointer;
+        }
+
+        /* ساختار چت */
+        .chat-app { display: none; flex-direction: column; height: 100vh; }
+        .header {
+            background: var(--header); padding: 10px 15px; display: flex;
+            align-items: center; gap: 12px; border-bottom: 1px solid #000;
+        }
+        .avatar { width: 42px; height: 42px; border-radius: 50%; background: #2b5278; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .status-area h4 { margin: 0; font-size: 16px; }
+        .status-area span { font-size: 11px; color: var(--accent); }
+
+        .messages {
+            flex: 1; overflow-y: auto; padding: 15px;
+            background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .bubble {
+            max-width: 85%; padding: 8px 12px; border-radius: 15px;
+            position: relative; font-size: 14px; line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .my { align-self: flex-end; background: var(--my-msg); border-bottom-right-radius: 2px; }
+        .other { align-self: flex-start; background: var(--other-msg); border-bottom-left-radius: 2px; }
+
+        .reply-box { 
+            font-size: 12px; background: rgba(0,0,0,0.2); 
+            border-right: 3px solid var(--accent); padding: 5px; margin-bottom: 5px; border-radius: 4px;
+        }
+
+        .footer { background: var(--header); padding: 10px; display: flex; align-items: center; gap: 10px; }
+        .input-wrapper { flex: 1; background: #242f3d; border-radius: 20px; padding: 0 15px; display: flex; align-items: center; }
+        #msg-input { flex: 1; background: none; border: none; padding: 10px 0; color: white; outline: none; }
+        
+        .hidden { display: none; }
+        .preview-reply { background: var(--header); padding: 8px 15px; border-top: 1px solid #242f3d; display: flex; justify-content: space-between; align-items: center; }
+        img.sent-media { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+    </style>
 </head>
 <body>
 
-    <div id="login-screen" class="overlay">
-        <div class="login-card">
-            <div class="avatar-header">
-                <ion-icon name="lock-closed-outline"></ion-icon>
-            </div>
-            <h2>ورود به گفتگوی خصوصی</h2>
-            <div class="input-group">
-                <input type="text" id="username" placeholder="نام کاربری..." autocomplete="off">
-                <input type="password" id="password" placeholder="رمز عبور..." autocomplete="off">
-            </div>
-            <button id="login-btn">ورود به چت</button>
-            <p id="login-error" class="error-msg"></p>
+    <div id="auth-layer" class="auth-overlay">
+        <div class="login-box">
+            <ion-icon name="shield-checkmark" style="font-size: 48px; color: var(--accent);"></ion-icon>
+            <h3>ورود امن</h3>
+            <input type="text" id="user-field" placeholder="نام کاربری">
+            <input type="password" id="pass-field" placeholder="رمز عبور">
+            <button onclick="attemptLogin()">ورود</button>
         </div>
     </div>
 
-    <div id="chat-app" class="app-container hidden">
-        <aside class="sidebar">
-            <header class="side-header">
-                <div class="brand">پنل کاربری</div>
-            </header>
-            <div class="current-user-info">
-                <div class="user-avatar" id="my-avatar"></div>
-                <div class="user-details">
-                    <span id="my-display-name"></span>
-                    <small>آنلاین</small>
-                </div>
+    <div id="chat-ui" class="chat-app">
+        <div class="header">
+            <div class="avatar" id="p-avatar">?</div>
+            <div class="status-area">
+                <h4 id="p-name">Loading...</h4>
+                <span id="p-status">در دسترس</span>
             </div>
-        </aside>
+        </div>
 
-        <main class="chat-main">
-            <header class="chat-header">
-                <div class="header-user">
-                    <div class="user-avatar" id="partner-avatar"></div>
-                    <div class="status-info">
-                        <h3 id="partner-name">...</h3>
-                        <span id="online-status">درحال بررسی...</span>
-                        <span id="typing-indicator" class="typing hidden">در حال نوشتن...</span>
-                    </div>
-                </div>
-                <div class="header-actions">
-                    <button id="logout-btn" title="خروج"><ion-icon name="log-out-outline"></ion-icon></button>
-                </div>
-            </header>
+        <div class="messages" id="msg-container"></div>
 
-            <div id="chat-box" class="messages-container">
-                </div>
+        <div id="reply-bar" class="preview-reply hidden">
+            <div id="reply-text" style="font-size: 12px; color: var(--text-sec);"></div>
+            <ion-icon name="close-circle" onclick="cancelReply()" style="cursor:pointer"></ion-icon>
+        </div>
 
-            <div id="reply-preview" class="reply-container hidden">
-                <div class="reply-content">
-                    <ion-icon name="arrow-undo-outline"></ion-icon>
-                    <div class="reply-text-wrapper">
-                        <small>پاسخ به:</small>
-                        <p id="reply-to-text"></p>
-                    </div>
-                </div>
-                <button onclick="cancelReply()"><ion-icon name="close-circle"></ion-icon></button>
+        <div class="footer">
+            <label style="font-size: 24px; color: var(--accent); cursor: pointer;">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                <input type="file" id="file-up" hidden accept="image/*">
+            </label>
+            <div class="input-wrapper">
+                <input type="text" id="msg-input" placeholder="پیام...">
             </div>
-
-            <footer class="chat-footer">
-                <form id="chat-form">
-                    <label for="media-input" class="icon-btn">
-                        <ion-icon name="attach-outline"></ion-icon>
-                        <input type="file" id="media-input" accept="image/*,video/*" hidden>
-                    </label>
-                    <div class="input-wrapper">
-                        <input type="text" id="message-input" placeholder="پیام خود را اینجا بنویسید..." autocomplete="off">
-                    </div>
-                    <button type="submit" class="send-btn">
-                        <ion-icon name="paper-plane"></ion-icon>
-                    </button>
-                </form>
-            </footer>
-        </main>
+            <ion-icon name="send" id="send-btn" style="font-size: 24px; color: var(--accent); cursor: pointer;"></ion-icon>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js"></script>
+    <script>
+        // اطلاعات حساس به صورت Base64 برای عدم خوانایی مستقیم
+        // Amirhossein:Amir13855 | Mahdieh:Mahi1385
+        const _U = {
+            'YW1pcmhvc3NlaW4=': { n: 'امیرحسین', p: 'YW1pcjEzODU1' },
+            'bWFoZGllaA==': { n: 'مهدیه', p: 'bWFoaTEzODU=' }
+        };
+
+        const client = supabase.createClient("https://fskpkxyhtbmfgysenvpk.supabase.co", "sb_publishable_HG69pw06imFQNfmeY3d7ng_hS2dPGkt");
+        let me = null, partner = null, replyId = null;
+
+        function attemptLogin() {
+            const u = btoa(document.getElementById('user-field').value.toLowerCase());
+            const p = btoa(document.getElementById('pass-field').value.toLowerCase());
+            
+            if(_U[u] && _U[u].p === p) {
+                me = { id: atob(u), name: _U[u].n };
+                partner = me.id === 'amirhossein' ? { id: 'mahdieh', name: 'مهدیه' } : { id: 'amirhossein', name: 'امیرحسین' };
+                startApp();
+            } else { alert("خطا در ورود!"); }
+        }
+
+        async function startApp() {
+            document.getElementById('auth-layer').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
+            document.getElementById('p-name').innerText = partner.name;
+            document.getElementById('p-avatar').innerText = partner.name[0];
+            
+            fetchMsgs();
+            client.channel('any').on('postgres_changes', {event:'*', table:'messages'}, payload => {
+                if(payload.eventType === 'INSERT') render(payload.new);
+                if(payload.eventType === 'DELETE') document.getElementById('m-'+payload.old.id)?.remove();
+            }).subscribe();
+        }
+
+        async function fetchMsgs() {
+            const { data } = await client.from('messages').select('*').order('created_at', {ascending: true});
+            if(data) data.forEach(render);
+        }
+
+        function render(msg) {
+            const isMe = msg.user_id === me.id;
+            const div = document.createElement('div');
+            div.id = 'm-' + msg.id;
+            div.className = `bubble ${isMe ? 'my' : 'other'}`;
+            
+            let content = '';
+            if(msg.reply_to_id) content += `<div class="reply-box">پاسخ داده شده</div>`;
+            if(msg.media_url) content += `<img src="${msg.media_url}" class="sent-media">`;
+            content += `<div>${msg.content}</div>`;
+            content += `<div style="font-size:9px; opacity:0.5; margin-top:5px; text-align:left;" onclick="delMsg('${msg.id}')">حذف</div>`;
+            
+            div.innerHTML = content;
+            div.onclick = () => { replyId = msg.id; document.getElementById('reply-bar').classList.remove('hidden'); document.getElementById('reply-text').innerText = msg.content; };
+            document.getElementById('msg-container').appendChild(div);
+            document.getElementById('msg-container').scrollTop = document.getElementById('msg-container').scrollHeight;
+        }
+
+        document.getElementById('send-btn').onclick = async () => {
+            const val = document.getElementById('msg-input').value;
+            if(!val) return;
+            await client.from('messages').insert([{ content: val, user_id: me.id, reply_to_id: replyId }]);
+            document.getElementById('msg-input').value = '';
+            cancelReply();
+        };
+
+        async function delMsg(id) { if(confirm("حذف پیام؟")) await client.from('messages').delete().eq('id', id); }
+        function cancelReply() { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); }
+
+        // آپلود فایل
+        document.getElementById('file-up').onchange = async (e) => {
+            const file = e.target.files[0];
+            const name = Date.now() + '.png';
+            const { data } = await client.storage.from('chat-media').upload(name, file);
+            if(data) {
+                const url = client.storage.from('chat-media').getPublicUrl(name).data.publicUrl;
+                await client.from('messages').insert([{ content: '📸 تصویر', user_id: me.id, media_url: url }]);
+            }
+        };
+    </script>
 </body>
 </html>
