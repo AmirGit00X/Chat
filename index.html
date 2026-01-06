@@ -1,1 +1,90 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Chat Room</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+</head>
+<body>
 
+    <div id="login-screen" class="overlay">
+        <div class="login-card">
+            <div class="avatar-header">
+                <ion-icon name="lock-closed-outline"></ion-icon>
+            </div>
+            <h2>ورود به گفتگوی خصوصی</h2>
+            <div class="input-group">
+                <input type="text" id="username" placeholder="نام کاربری..." autocomplete="off">
+                <input type="password" id="password" placeholder="رمز عبور..." autocomplete="off">
+            </div>
+            <button id="login-btn">ورود به چت</button>
+            <p id="login-error" class="error-msg"></p>
+        </div>
+    </div>
+
+    <div id="chat-app" class="app-container hidden">
+        <aside class="sidebar">
+            <header class="side-header">
+                <div class="brand">پنل کاربری</div>
+            </header>
+            <div class="current-user-info">
+                <div class="user-avatar" id="my-avatar"></div>
+                <div class="user-details">
+                    <span id="my-display-name"></span>
+                    <small>آنلاین</small>
+                </div>
+            </div>
+        </aside>
+
+        <main class="chat-main">
+            <header class="chat-header">
+                <div class="header-user">
+                    <div class="user-avatar" id="partner-avatar"></div>
+                    <div class="status-info">
+                        <h3 id="partner-name">...</h3>
+                        <span id="online-status">درحال بررسی...</span>
+                        <span id="typing-indicator" class="typing hidden">در حال نوشتن...</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="logout-btn" title="خروج"><ion-icon name="log-out-outline"></ion-icon></button>
+                </div>
+            </header>
+
+            <div id="chat-box" class="messages-container">
+                </div>
+
+            <div id="reply-preview" class="reply-container hidden">
+                <div class="reply-content">
+                    <ion-icon name="arrow-undo-outline"></ion-icon>
+                    <div class="reply-text-wrapper">
+                        <small>پاسخ به:</small>
+                        <p id="reply-to-text"></p>
+                    </div>
+                </div>
+                <button onclick="cancelReply()"><ion-icon name="close-circle"></ion-icon></button>
+            </div>
+
+            <footer class="chat-footer">
+                <form id="chat-form">
+                    <label for="media-input" class="icon-btn">
+                        <ion-icon name="attach-outline"></ion-icon>
+                        <input type="file" id="media-input" accept="image/*,video/*" hidden>
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="text" id="message-input" placeholder="پیام خود را اینجا بنویسید..." autocomplete="off">
+                    </div>
+                    <button type="submit" class="send-btn">
+                        <ion-icon name="paper-plane"></ion-icon>
+                    </button>
+                </form>
+            </footer>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+</body>
+</html>
